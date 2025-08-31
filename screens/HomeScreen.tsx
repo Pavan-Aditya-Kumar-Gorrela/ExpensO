@@ -7,6 +7,7 @@ import {
   RefreshControl,
   Alert,
   Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { PieChart, BarChart } from 'react-native-chart-kit';
 import { ExpenseCard } from '../components/ExpenseCard';
@@ -16,6 +17,8 @@ import { Expense, Category, FilterOptions } from '../types';
 import { getExpenses, getCategories, deleteExpense, initializeDefaultCategories } from '../storage/asyncStorage';
 import { getExpenseSummaries, getCategoryBreakdown, filterAndSortExpenses, generateChartData } from '../utils/expenseUtils';
 import { groupExpensesByDate, formatDate } from '../utils/dateUtils';
+import { format } from 'date-fns';
+import { exportExpensesToExcel, getExportData } from '../utils/exportUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -30,6 +33,7 @@ export const HomeScreen: React.FC = () => {
     sortBy: 'date',
     sortOrder: 'desc',
   });
+  const [selectedExportMonth, setSelectedExportMonth] = useState(new Date());
 
   useEffect(() => {
     loadData();
@@ -102,6 +106,24 @@ export const HomeScreen: React.FC = () => {
     setFilterOptions(prev => ({ ...prev, sortBy, sortOrder }));
   };
 
+  const handleExportData = async () => {
+    try {
+      await exportExpensesToExcel(expenses, categories, selectedExportMonth);
+      Alert.alert('Success', 'Expenses exported successfully!');
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      Alert.alert('Error', 'Failed to export expenses. Please try again.');
+    }
+  };
+
+  const handleMonthChange = (increment: number) => {
+    setSelectedExportMonth(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() + increment);
+      return newDate;
+    });
+  };
+
   const summaries = getExpenseSummaries(expenses);
   const monthlyBreakdown = getCategoryBreakdown(expenses, categories, new Date(new Date().getFullYear(), new Date().getMonth(), 1), new Date());
   const weeklyBreakdown = getCategoryBreakdown(expenses, categories, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), new Date());
@@ -124,8 +146,18 @@ export const HomeScreen: React.FC = () => {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>ExpenseO</Text>
-        <Text style={styles.subtitle}>Track your spending habits</Text>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.title}>ExpenseO</Text>
+            <Text style={styles.subtitle}>Track your spending habits</Text>
+          </View>
+          <View style={styles.exportSection}>
+            <TouchableOpacity style={styles.exportButton} onPress={handleExportData}>
+              <Text style={styles.exportButtonText}>📊 Export</Text>
+            </TouchableOpacity>
+           
+          </View>
+        </View>
       </View>
 
       {/* Summary Cards */}
@@ -272,6 +304,69 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  exportButton: {
+    backgroundColor: '#4299E1',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  exportButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  exportSection: {
+    alignItems: 'flex-end',
+  },
+  monthSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    backgroundColor: '#F7FAFC',
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  monthButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  monthButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4A5568',
+  },
+  monthText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginHorizontal: 12,
+    minWidth: 60,
+    textAlign: 'center',
+  },
+  exportInfo: {
+    fontSize: 12,
+    color: '#718096',
+    textAlign: 'center',
+    marginTop: 4,
   },
   title: {
     fontSize: 28,
